@@ -7,6 +7,7 @@ import Register from './pages/Auth/Register'
 import POS from './pages/POS/POS'
 import ProductList from './pages/Inventory/ProductList'
 import Layout from './components/Layout'
+import Ticket from './components/Ticket'
 
 
 import SalesDashboard from './pages/SalesDashboard'
@@ -25,6 +26,11 @@ function App() {
                 <Route path="/" element={<POS />} />
                 <Route path="/inventory" element={<ProductList />} />
                 <Route path="/sales-dashboard" element={<SalesDashboard />} />
+                <Route path="/ticket-preview" element={
+                  <div className="min-h-screen bg-gray-200 flex items-center justify-center p-4">
+                    <Ticket />
+                  </div>
+                } />
               </Route>
             </Route>
 
