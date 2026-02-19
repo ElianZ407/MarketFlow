@@ -29,14 +29,19 @@ const inventory = {
         filtered.forEach(p => {
             const card = document.createElement('div');
             card.className = 'bg-white p-4 rounded-xl shadow-sm border hover:shadow-md transition';
+            const imageSrc = p.image || `https://placehold.co/400x300?text=${encodeURIComponent(p.name)}`;
+
             card.innerHTML = `
-                <div class="flex justify-between items-start mb-2">
-                    <h3 class="font-bold text-gray-800 truncate pr-2">${p.name}</h3>
-                    <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">${p.category || 'General'}</span>
-                </div>
-                <div class="text-2xl font-bold text-green-600 mb-2">$${p.price.toFixed(2)}</div>
-                <div class="flex justify-between items-center text-sm text-gray-500 mb-4">
-                    <span>Stock: ${p.stock}</span>
+                <div class="flex gap-4 mb-4">
+                    <img src="${imageSrc}" class="w-16 h-16 rounded-lg object-cover bg-gray-100">
+                    <div class="flex-1">
+                        <div class="flex justify-between items-start">
+                            <h3 class="font-bold text-gray-800 truncate pr-2">${p.name}</h3>
+                            <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">${p.category || 'General'}</span>
+                        </div>
+                        <div class="text-xl font-bold text-green-600">$${p.price.toFixed(2)}</div>
+                        <div class="text-sm text-gray-500">Stock: ${p.stock}</div>
+                    </div>
                 </div>
                 <div class="flex gap-2">
                     <button
@@ -76,6 +81,7 @@ const inventory = {
             document.getElementById('prodPrice').value = product.price;
             document.getElementById('prodStock').value = product.stock;
             document.getElementById('prodCategory').value = product.category;
+            document.getElementById('prodImage').value = product.image || '';
         } else {
             // New
             title.innerText = 'Nuevo Producto';
@@ -96,9 +102,10 @@ const inventory = {
         const price = parseFloat(document.getElementById('prodPrice').value);
         const stock = parseInt(document.getElementById('prodStock').value);
         const category = document.getElementById('prodCategory').value;
+        const image = document.getElementById('prodImage').value;
 
         const product = {
-            name, price, stock, category
+            name, price, stock, category, image
         };
 
         if (id) {

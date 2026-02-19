@@ -32,14 +32,22 @@ const pos = {
         filtered.forEach(p => {
             const card = document.createElement('div');
             // Tailwind Classes
-            card.className = 'bg-white p-4 rounded-xl shadow-sm border cursor-pointer hover:border-green-500 hover:shadow-md transition group';
+            card.className = 'bg-white p-4 rounded-xl shadow-sm border cursor-pointer hover:border-green-500 hover:shadow-md transition group flex flex-col gap-2';
             card.onclick = () => this.addToCart(p);
+
+            const imageSrc = p.image || `https://placehold.co/400x300?text=${encodeURIComponent(p.name)}`;
+
             card.innerHTML = `
-                <div class="flex justify-between items-start mb-2">
-                    <h3 class="font-bold text-gray-800 truncate">${p.name}</h3>
+                <div class="w-full h-32 bg-gray-100 rounded-lg overflow-hidden mb-2">
+                    <img src="${imageSrc}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
                 </div>
-                <p class="text-green-600 font-bold text-xl">$${p.price.toFixed(2)}</p>
-                <p class="text-xs text-gray-400 mt-1">Stock: ${p.stock}</p>
+                <div class="flex justify-between items-start">
+                    <h3 class="font-bold text-gray-800 truncate text-sm">${p.name}</h3>
+                </div>
+                <div class="flex justify-between items-center mt-auto">
+                    <p class="text-green-600 font-bold text-lg">$${p.price.toFixed(2)}</p>
+                    <p class="text-xs text-gray-400">Stock: ${p.stock}</p>
+                </div>
             `;
             grid.appendChild(card);
         });
@@ -167,12 +175,15 @@ const pos = {
             return;
         }
 
+        const contactInput = document.getElementById('customerContact').value.trim();
+
         const sale = {
             total: total,
             paymentMethod: this.paymentMethod,
             items: [...this.cart],
             cashGiven: cash || total,
-            change: (cash - total) > 0 ? (cash - total) : 0
+            change: (cash - total) > 0 ? (cash - total) : 0,
+            customerContact: contactInput
         };
 
         const savedSale = DB.addSale(sale);
@@ -181,61 +192,161 @@ const pos = {
         this.cart = [];
         this.renderCart();
         document.getElementById('cashGiven').value = '';
+        document.getElementById('customerContact').value = '';
         this.loadProducts();
         this.renderProducts();
     },
 
     printTicket(sale) {
-        const area = document.getElementById('ticket-print-area');
         const user = Auth.getUser();
         const date = new Date(sale.date).toLocaleString();
 
         let itemsHtml = '';
         sale.items.forEach(item => {
+            const itemTotal = (item.price * item.quantity).toFixed(2);
             itemsHtml += `
-                <div style="display: flex; margin-bottom: 5px;">
-                    <span style="width: 30px;">${item.quantity}</span>
-                    <span style="flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">${item.name}</span>
-                    <span style="width: 50px; text-align: right;">$${(item.price * item.quantity).toFixed(2)}</span>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                    <div style="display: flex;">
+                        <span style="width: 20px;">${item.quantity}</span>
+                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45mm;">${item.name}</span>
+                    </div>
+                    <span>$${itemTotal}</span>
                 </div>
             `;
         });
 
-        area.innerHTML = `
-            <div style="font-family: 'Courier New', monospace; font-size: 12px; width: 80mm; padding: 10px; background: white;">
+        // Content
+        const content = `
+            <div style="
+                font-family: 'Courier New', Courier, monospace; 
+                width: 70mm;
+                margin: 0 auto;
+                font-size: 12px; 
+                background: white; 
+                color: black;
+                padding: 10px 0;
+            ">
+                <!-- ENTITY HEADER -->
                 <div style="text-align: center; margin-bottom: 10px;">
-                    <h2 style="font-size: 16px; margin: 0; font-weight: bold;">${user.businessName || 'MarketFlow'}</h2>
-                    <p style="margin: 0;">${user.phone || ''}</p>
-                </div>
-                
-                <div style="border-bottom: 1px dashed black; padding-bottom: 5px; margin-bottom: 5px;">
-                    <p style="margin:0;">Fecha: ${date}</p>
-                    <p style="margin:0;">Ticket #: ${sale.id.toString().slice(-6)}</p>
+                    <h2 style="font-size: 14px; font-weight: bold; margin: 0; text-transform: uppercase;">${user.businessName || 'MARKETFLOW POS'}</h2>
+                    <p style="margin: 2px 0;">${user.address || 'Calle Falsa 123, Ciudad'}</p>
+                    <p style="margin: 0;">Tel: ${user.phone || '555-0123'}</p>
                 </div>
 
-                <div style="font-weight: bold; display: flex; border-bottom: 1px solid black; margin-bottom: 5px;">
-                    <span style="width: 30px;">Can</span>
-                    <span style="flex: 1;">Desc</span>
-                    <span style="width: 50px; text-align: right;">Imp</span>
+                <!-- INFO -->
+                <div style="margin-bottom: 5px;">
+                    <p style="margin: 0;">Fecha: ${date}</p>
+                    <p style="margin: 0;">Ticket #: ${String(sale.id).slice(-5)}</p>
                 </div>
 
-                <div style="border-bottom: 1px dashed black; margin-bottom: 10px; padding-bottom: 5px;">
+                <div style="border-top: 1px dashed black; margin: 5px 0;"></div>
+
+                <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 5px;">
+                    <span>Cant Desc</span>
+                    <span>Importe</span>
+                </div>
+
+                <div style="margin-bottom: 5px;">
                     ${itemsHtml}
                 </div>
 
-                <div style="text-align: right;">
-                    <div style="font-weight: bold; font-size: 14px;">TOTAL: $${sale.total.toFixed(2)}</div>
-                    <div>Pago (${sale.paymentMethod}): $${sale.cashGiven.toFixed(2)}</div>
-                    <div>Cambio: $${sale.change.toFixed(2)}</div>
+                <div style="border-top: 1px dashed black; margin: 5px 0;"></div>
+
+                <div style="text-align: right; margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 2px;">
+                        <span>TOTAL:</span>
+                        <span>$${sale.total.toFixed(2)}</span>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                        <span>Pago (${sale.paymentMethod}):</span>
+                        <span>$${sale.cashGiven.toFixed(2)}</span>
+                    </div>
+                    
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Cambio:</span>
+                        <span>$${sale.change.toFixed(2)}</span>
+                    </div>
                 </div>
 
-                <div style="text-align: center; margin-top: 15px; border-top: 1px dashed black; padding-top: 5px;">
-                    <p style="margin:0; font-weight: bold;">¡GRACIAS POR SU COMPRA!</p>
+                <div style="border-top: 1px dashed black; margin: 5px 0;"></div>
+
+                <div style="text-align: center; margin-top: 10px;">
+                    <p style="margin: 2px 0; font-weight: bold;">¡GRACIAS POR SU COMPRA!</p>
                 </div>
             </div>
         `;
 
-        window.print();
+        // Create temporary element
+        const element = document.createElement('div');
+        element.innerHTML = content;
+        element.style.position = 'fixed';
+        element.style.left = '-9999px';
+        element.style.top = '0';
+        element.style.width = '80mm';
+        element.style.background = 'white';
+        // Ensure z-index is high enough just in case, though off-screen matters more
+        element.style.zIndex = '9999';
+        document.body.appendChild(element);
+
+        // PDF Options
+        const opt = {
+            margin: 1,
+            filename: `ticket-${sale.id}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, logging: false, useCORS: true },
+            jsPDF: { unit: 'mm', format: [80, 297], orientation: 'portrait' }
+        };
+
+        // Download
+        html2pdf().set(opt).from(element).output('blob').then((blob) => {
+            // Prepare Text Summary for Digital Sending
+            let textCheck = `*TICKET #${sale.id}*\n`;
+            textCheck += `📅 ${date}\n\n`;
+            textCheck += `*ITEMS:*\n`;
+
+            sale.items.forEach(i => {
+                textCheck += `${i.quantity}x ${i.name} - $${(i.price * i.quantity).toFixed(2)}\n`;
+            });
+
+            textCheck += `\n*TOTAL: $${sale.total.toFixed(2)}*\n`;
+            textCheck += `Pago: $${sale.cashGiven.toFixed(2)} (${sale.paymentMethod})\n`;
+            textCheck += `Cambio: $${sale.change.toFixed(2)}\n`;
+            textCheck += `\n¡Gracias por su compra! 🛒`;
+
+            const contact = sale.customerContact || '';
+
+            if (contact.includes('@')) {
+                // EMAIL
+                const mailtoLink = `mailto:${contact}?subject=Ticket de Compra #${sale.id}&body=${encodeURIComponent(textCheck)}`;
+                window.open(mailtoLink, '_blank');
+            } else if (contact.length > 0) {
+                // PHONE -> WHATSAPP WEB DIRECTLY
+                // Strip non-numeric chars to prevent errors
+                const phone = contact.replace(/\D/g, '');
+                const waLink = `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(textCheck)}`;
+                window.open(waLink, '_blank');
+            }
+
+            // ALWAYS DOWNLOAD PDF (The "Action")
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ticket-${sale.id}.pdf`;
+            a.click();
+            URL.revokeObjectURL(url);
+            document.body.removeChild(element);
+        });
+    },
+
+    reprintLast() {
+        const sales = DB.getSales();
+        if (sales.length > 0) {
+            const lastSale = sales[sales.length - 1];
+            this.printTicket(lastSale);
+        } else {
+            alert('No hay ventas recientes para imprimir.');
+        }
     }
 };
 
