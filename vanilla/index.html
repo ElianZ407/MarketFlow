@@ -10,6 +10,9 @@
     <script>tailwind.config = { darkMode: 'class' };</script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- jsPDF + AutoTable para exportar PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
 
@@ -389,11 +392,20 @@
                             </div>
                             <div class="flex items-center gap-4">
                                 <span class="text-xl font-black text-emerald-600">$${parseFloat(s.total).toFixed(2)}</span>
-                                <button
-                                    onclick="app.reopenTicket(${idx})"
-                                    class="p-2.5 bg-slate-100 dark:bg-slate-700 hover:bg-emerald-500 hover:text-white text-slate-400 rounded-xl transition-all">
-                                    <i data-lucide="printer" class="w-4 h-4"></i>
-                                </button>
+                                <div class="flex gap-2">
+                                    <button
+                                        onclick="app.reopenTicket(${idx})"
+                                        class="flex items-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-emerald-500 hover:text-white text-slate-500 dark:text-slate-300 rounded-xl transition-all text-sm font-bold">
+                                        <i data-lucide="eye" class="w-4 h-4"></i>
+                                        <span>Ver</span>
+                                    </button>
+                                    <button
+                                        onclick="app.downloadTicketPDF((app._ticketCache||[])[${idx}],(app._ticketCache||[])[${idx}]?.given||(app._ticketCache||[])[${idx}]?.total,(app._ticketCache||[])[${idx}]?.items)"
+                                        class="flex items-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-blue-500 hover:text-white text-slate-500 dark:text-slate-300 rounded-xl transition-all text-sm font-bold">
+                                        <i data-lucide="file-down" class="w-4 h-4"></i>
+                                        <span>PDF</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>`;
                     }).join('');
@@ -426,8 +438,8 @@
                 container.innerHTML = `
                     <div class="max-w-xl mx-auto">
                         <div class="mb-10 text-center md:text-left">
-                            <h2 class="text-4xl font-extrabold text-slate-900 tracking-tight">Mi Perfil</h2>
-                            <p class="text-slate-500 mt-2">Personaliza la información de tu puesto en el mercado.</p>
+                            <h2 class="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">Mi Perfil</h2>
+                            <p class="text-slate-500 dark:text-slate-400 mt-2">Personaliza la información de tu puesto en el mercado.</p>
                         </div>
 
                         <div class="bg-white rounded-[3rem] shadow-2xl shadow-slate-200 border border-slate-100 overflow-hidden">
@@ -488,8 +500,8 @@
                         <div class="flex-1 min-w-0">
                             <div class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                                 <div>
-                                    <h2 class="text-3xl font-black text-slate-900 tracking-tight">Caja Registradora</h2>
-                                    <p class="text-slate-500 font-medium">Mercado José M. Pino Suárez</p>
+                                    <h2 class="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Caja Registradora</h2>
+                                    <p class="text-slate-500 dark:text-slate-400 font-medium">Mercado José M. Pino Suárez</p>
                                 </div>
                                 <div class="relative w-full md:w-80">
                                     <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5"></i>
@@ -679,6 +691,8 @@
             },
 
             showTicket(saleData, given, items) {
+                // Guardar referencia para que el botón PDF pueda acceder
+                this._currentTicket = { saleData, given, items };
                 const profile = DB.get(DB.KEYS.PROFILE);
                 const date = new Date(saleData.date);
                 const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}, ${date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
@@ -765,6 +779,11 @@
                                 <i data-lucide="send" class="w-4 h-4"></i> WhatsApp
                             </button>
                         </div>
+                        <div class="no-print w-full max-w-[280px]">
+                            <button onclick="app.downloadTicketPDF(app._currentTicket.saleData, app._currentTicket.given, app._currentTicket.items)" class="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3.5 rounded-2xl font-black text-sm hover:bg-blue-700 active:scale-95 transition-all shadow-lg shadow-blue-200">
+                                <i data-lucide="file-down" class="w-4 h-4"></i> Descargar PDF
+                            </button>
+                        </div>
                         <button onclick="app.closeModal()" class="no-print text-xs font-bold text-slate-400 hover:text-slate-700 transition-colors">
                             Cerrar ticket
                         </button>
@@ -802,33 +821,33 @@
                 container.innerHTML = `
                     <div class="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                         <div>
-                            <h2 class="text-4xl font-extrabold text-slate-900 tracking-tight">Inventario</h2>
-                            <p class="text-slate-500 font-medium">Gestiona tus productos del mercado.</p>
+                            <h2 class="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">Inventario</h2>
+                            <p class="text-slate-500 dark:text-slate-400 font-medium">Gestiona tus productos del mercado.</p>
                         </div>
                         <button onclick="app.openProductModal()" class="bg-emerald-600 text-white px-8 py-4 rounded-[1.5rem] font-black flex items-center gap-2 shadow-xl shadow-emerald-100 hover:bg-emerald-700 transition-all">
                             <i data-lucide="plus" class="w-5 h-5"></i> Nuevo Producto
                         </button>
                     </div>
 
-                    <div class="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden">
+                    <div class="bg-white dark:bg-slate-800 rounded-[3rem] shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
                         <table class="w-full text-left">
-                            <thead class="bg-slate-50/50 border-b border-slate-100">
+                            <thead class="bg-slate-50/50 dark:bg-slate-700/50 border-b border-slate-100 dark:border-slate-600">
                                 <tr>
-                                    <th class="p-8 text-xs font-black text-slate-400 uppercase tracking-widest">Artículo</th>
-                                    <th class="p-8 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Precio</th>
-                                    <th class="p-8 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Stock</th>
-                                    <th class="p-8 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Acciones</th>
+                                    <th class="p-8 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Artículo</th>
+                                    <th class="p-8 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-right">Precio</th>
+                                    <th class="p-8 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center">Stock</th>
+                                    <th class="p-8 text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-right">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-50">
                                 ${products.map(p => `
-                                    <tr class="hover:bg-slate-50/20 transition-colors">
+                                    <tr class="hover:bg-slate-50/20 dark:hover:bg-slate-700/30 transition-colors">
                                         <td class="p-8">
                                             <div class="flex items-center gap-4">
                                                 <div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
                                                     <i data-lucide="${p.icon || 'package'}" class="w-5 h-5"></i>
                                                 </div>
-                                                <span class="font-bold text-slate-700">${p.name}</span>
+                                                <span class="font-bold text-slate-700 dark:text-slate-200">${p.name}</span>
                                             </div>
                                         </td>
                                         <td class="p-8 font-black text-emerald-600 text-right text-lg">$${p.price.toFixed(2)}</td>
@@ -901,6 +920,7 @@
                 }
                 DB.save(DB.KEYS.PRODUCTS, prods);
                 this.closeModal();
+                this.currentView = ''; // Forzar re-render del inventario
                 this.showView('inventory');
             },
 
@@ -917,8 +937,8 @@
                 const total = sales.reduce((s, x) => s + x.total, 0);
                 container.innerHTML = `
                     <div class="mb-10">
-                        <h2 class="text-4xl font-extrabold text-slate-900 tracking-tight">Corte de Caja</h2>
-                        <p class="text-slate-500 mt-2 font-medium">Resumen financiero del día.</p>
+                        <h2 class="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">Corte de Caja</h2>
+                        <p class="text-slate-500 dark:text-slate-400 mt-2 font-medium">Resumen financiero del día.</p>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
@@ -968,6 +988,107 @@
                 const filtered = products.filter(p => p.name.toLowerCase().includes(q.toLowerCase()));
                 grid.innerHTML = this.renderGrid(filtered);
                 lucide.createIcons();
+            },
+
+            // --- DESCARGAR TICKET PDF (estilo Chedraui) ---
+            downloadTicketPDF(saleData, given, items) {
+                if (!saleData || !items) return;
+                const { jsPDF } = window.jspdf;
+                const profile = DB.get(DB.KEYS.PROFILE);
+                const doc = new jsPDF({ unit: 'mm', format: [80, 297], orientation: 'portrait' });
+                const pageW = 80;
+                const margin = 5;
+                let y = 7;
+                const lineH = 4.2;
+
+                // ======== ENCABEZADO ========
+                doc.setFont('courier', 'bold');
+                doc.setFontSize(12);
+                doc.text(profile.business.toUpperCase(), pageW / 2, y, { align: 'center' }); y += lineH + 1;
+
+                doc.setFont('courier', 'normal');
+                doc.setFontSize(7.5);
+                const locLines = doc.splitTextToSize(profile.location, pageW - margin * 2);
+                locLines.forEach(l => { doc.text(l, pageW / 2, y, { align: 'center' }); y += lineH; });
+                doc.text('Tel: ' + profile.phone, pageW / 2, y, { align: 'center' }); y += lineH + 1;
+
+                // ======== DIVIDER ========
+                doc.setDrawColor(170); doc.setLineDash([1.5, 1.5]);
+                doc.line(margin, y, pageW - margin, y); y += 3;
+
+                // ======== FECHA Y TICKET ========
+                const date = new Date(saleData.date);
+                const dateStr = date.toLocaleDateString('es-MX') + ' ' + date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+                doc.setFontSize(7.5); doc.setFont('courier', 'normal');
+                doc.text('Fecha:', margin, y); doc.text(dateStr, pageW - margin, y, { align: 'right' }); y += lineH;
+                doc.text('Ticket #:', margin, y); doc.text(saleData.ticketNum || String(saleData.id).slice(-5), pageW - margin, y, { align: 'right' }); y += lineH + 1;
+
+                // ======== DIVIDER ========
+                doc.setLineDash([1.5, 1.5]);
+                doc.line(margin, y, pageW - margin, y); y += 3;
+
+                // ======== TABLA DE ARTÍCULOS ========
+                const tableBody = items.map(i => [
+                    String(i.quantity),
+                    i.name,
+                    '$' + parseFloat(i.price).toFixed(2),
+                    '$' + (i.price * i.quantity).toFixed(2)
+                ]);
+
+                doc.autoTable({
+                    startY: y,
+                    head: [['CANT', 'ARTÍCULO', 'PRECIO', 'TOTAL']],
+                    body: tableBody,
+                    theme: 'plain',
+                    styles: { fontSize: 7, cellPadding: [1, 1], font: 'courier', overflow: 'linebreak', textColor: [0, 0, 0] },
+                    headStyles: { fontStyle: 'bold', fontSize: 7, lineWidth: { bottom: 0.3 }, lineColor: [0, 0, 0], fillColor: false },
+                    columnStyles: {
+                        0: { cellWidth: 8, halign: 'center' },
+                        1: { cellWidth: 34 },
+                        2: { cellWidth: 15, halign: 'right' },
+                        3: { cellWidth: 13, halign: 'right' }
+                    },
+                    margin: { left: margin, right: margin },
+                    tableWidth: pageW - margin * 2
+                });
+                y = doc.lastAutoTable.finalY + 2;
+
+                // ======== DIVIDER ========
+                doc.setLineDash([1.5, 1.5]);
+                doc.line(margin, y, pageW - margin, y); y += 3;
+
+                // ======== TOTALES ========
+                const change = given - saleData.total;
+                doc.setFont('courier', 'bold'); doc.setFontSize(9);
+                doc.text('* *', margin, y);
+                doc.text('TOTAL M.N. $', pageW / 2, y, { align: 'right' });
+                doc.text(saleData.total.toFixed(2), pageW - margin, y, { align: 'right' }); y += lineH;
+
+                doc.setFont('courier', 'normal'); doc.setFontSize(7.5);
+                doc.text('Efectivo$', pageW / 2, y, { align: 'right' });
+                doc.text(parseFloat(given).toFixed(2), pageW - margin, y, { align: 'right' }); y += lineH;
+
+                doc.setFont('courier', 'bold'); doc.setFontSize(9);
+                doc.text('CAMBIO$', pageW / 2, y, { align: 'right' });
+                doc.text(Math.max(0, change).toFixed(2), pageW - margin, y, { align: 'right' }); y += lineH + 1;
+
+                // ======== TOTAL ARTÍCULOS ========
+                doc.setFont('courier', 'normal'); doc.setFontSize(7.5);
+                const totalUnits = items.reduce((s, i) => s + i.quantity, 0);
+                doc.text('TOTAL DE ARTICULOS VENDIDOS = ' + totalUnits, pageW / 2, y, { align: 'center' }); y += lineH + 2;
+
+                // ======== DIVIDER ========
+                doc.setLineDash([1.5, 1.5]);
+                doc.line(margin, y, pageW - margin, y); y += 3;
+
+                // ======== PIE ========
+                doc.setFont('courier', 'bold'); doc.setFontSize(8);
+                doc.text('¡GRACIAS POR SU COMPRA!', pageW / 2, y, { align: 'center' }); y += lineH;
+                doc.setFont('courier', 'normal'); doc.setFontSize(7);
+                doc.text('Si requiere factura solícitela en el momento.', pageW / 2, y, { align: 'center', maxWidth: pageW - margin * 2 }); y += lineH;
+                doc.text(profile.business, pageW / 2, y, { align: 'center' });
+
+                doc.save('ticket-' + (saleData.ticketNum || saleData.id) + '.pdf');
             },
 
             reset() { if (confirm('¿Cerrar caja y salir?')) location.reload(); }
