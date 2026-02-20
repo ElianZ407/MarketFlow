@@ -13,6 +13,8 @@
     <!-- jsPDF + AutoTable para exportar PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap');
 
@@ -263,19 +265,50 @@
         /**
          * DB Y PERSISTENCIA
          */
+        const DB_VERSION = '4';
         const DB = {
             KEYS: { PRODUCTS: 'mf_products', SALES: 'mf_sales', PROFILE: 'mf_profile' },
+            _defaultProducts: [
+                // — LÁCTEOS —
+                { id: 1, name: 'Queso Sopero Tabasco (kg)', price: 145, stock: 20, category: 'Lácteos', icon: 'cheese' },
+                { id: 2, name: 'Queso de Hoja (pza)', price: 180, stock: 15, category: 'Lácteos', icon: 'cheese' },
+                { id: 3, name: 'Crema Agria (litro)', price: 60, stock: 30, category: 'Lácteos', icon: 'droplets' },
+                // — BEBIDAS —
+                { id: 4, name: 'Horchata de Arroz 1L', price: 35, stock: 50, category: 'Bebidas', icon: 'cup-soda' },
+                { id: 5, name: 'Pozol de Cacao 1L', price: 25, stock: 40, category: 'Bebidas', icon: 'coffee' },
+                { id: 6, name: 'Agua de Jamaica 1L', price: 20, stock: 35, category: 'Bebidas', icon: 'glass-water' },
+                // — EMBUTIDOS —
+                { id: 7, name: 'Butifarras Jalpa (orden)', price: 95, stock: 15, category: 'Embutidos', icon: 'utensils' },
+                { id: 8, name: 'Longaniza Tabasqueña (kg)', price: 120, stock: 20, category: 'Embutidos', icon: 'utensils' },
+                { id: 9, name: 'Chorizo Tabasqueño (kg)', price: 110, stock: 18, category: 'Embutidos', icon: 'utensils' },
+                // — PESCADOS Y MARISCOS —
+                { id: 10, name: 'Pejelagarto en Chile (kg)', price: 220, stock: 10, category: 'Pescados', icon: 'fish' },
+                { id: 11, name: 'Mojarra Fresca (kg)', price: 90, stock: 25, category: 'Pescados', icon: 'fish' },
+                { id: 12, name: 'Camarón de Río (kg)', price: 150, stock: 12, category: 'Mariscos', icon: 'shell' },
+                // — VERDURAS Y HIERBAS —
+                { id: 13, name: 'Chile Amashito (bolsa)', price: 15, stock: 60, category: 'Verduras', icon: 'flame' },
+                { id: 14, name: 'Hierba Santa / Momo (mano)', price: 10, stock: 80, category: 'Verduras', icon: 'leaf' },
+                { id: 15, name: 'Chipilín (mano)', price: 10, stock: 70, category: 'Verduras', icon: 'leaf' },
+                { id: 16, name: 'Chaya (mano)', price: 12, stock: 60, category: 'Verduras', icon: 'leaf' },
+                // — FRUTAS —
+                { id: 17, name: 'Plátano Macho (kg)', price: 22, stock: 100, category: 'Frutas', icon: 'banana' },
+                { id: 18, name: 'Mamey (pza)', price: 35, stock: 30, category: 'Frutas', icon: 'apple' },
+                { id: 19, name: 'Guanábana (kg)', price: 40, stock: 20, category: 'Frutas', icon: 'apple' },
+                { id: 20, name: 'Marañón (kg)', price: 55, stock: 25, category: 'Frutas', icon: 'apple' },
+                // — ABARROTES —
+                { id: 21, name: 'Frijol Negro (kg)', price: 28, stock: 80, category: 'Abarrotes', icon: 'package' },
+                { id: 22, name: 'Arroz (kg)', price: 20, stock: 100, category: 'Abarrotes', icon: 'package' },
+                { id: 23, name: 'Cacao en Grano (100g)', price: 45, stock: 40, category: 'Abarrotes', icon: 'package' },
+                { id: 24, name: 'Chocolate de Metate (tab)', price: 65, stock: 30, category: 'Abarrotes', icon: 'square' },
+                // — CARNICERÍA —
+                { id: 25, name: 'Carne de Res (kg)', price: 180, stock: 30, category: 'Carnicería', icon: 'beef' },
+                { id: 26, name: 'Tasajo (kg)', price: 160, stock: 20, category: 'Carnicería', icon: 'beef' },
+            ],
             init() {
-                if (!localStorage.getItem(this.KEYS.PRODUCTS)) {
-                    const iniciales = [
-                        { id: 1, name: 'Queso Sopero Tabasco', price: 145, stock: 20, category: 'Lácteos', icon: 'cheese' },
-                        { id: 2, name: 'Horchata de Arroz 1L', price: 35, stock: 50, category: 'Bebidas', icon: 'droplet' },
-                        { id: 3, name: 'Butifarras Jalpa (Orden)', price: 95, stock: 15, category: 'Comida', icon: 'utensils' },
-                        { id: 4, name: 'Chile Amashito (bolsa)', price: 15, stock: 40, category: 'Verduras', icon: 'flame' },
-                        { id: 5, name: 'Plátano Macho (kg)', price: 22, stock: 100, category: 'Frutas', icon: 'banana' },
-                        { id: 6, name: 'Carne de Res Premium', price: 180, stock: 30, category: 'Carnicería', icon: 'beef' }
-                    ];
-                    localStorage.setItem(this.KEYS.PRODUCTS, JSON.stringify(iniciales));
+                // Migración: forzar nuevos productos si es versión anterior
+                if (localStorage.getItem('mf_version') !== DB_VERSION) {
+                    localStorage.setItem(this.KEYS.PRODUCTS, JSON.stringify(this._defaultProducts));
+                    localStorage.setItem('mf_version', DB_VERSION);
                 }
                 if (!localStorage.getItem(this.KEYS.SALES)) localStorage.setItem(this.KEYS.SALES, '[]');
                 if (!localStorage.getItem(this.KEYS.PROFILE)) {
@@ -297,6 +330,8 @@
         const app = {
             cart: [],
             currentView: '',
+
+
 
             init() {
                 DB.init();
@@ -405,6 +440,11 @@
                                         <i data-lucide="file-down" class="w-4 h-4"></i>
                                         <span>PDF</span>
                                     </button>
+                                    <button
+                                        onclick="app.deleteTicket(${idx})"
+                                        class="flex items-center justify-center w-10 bg-slate-100 dark:bg-slate-700 hover:bg-rose-500 hover:text-white text-slate-500 dark:text-slate-300 rounded-xl transition-all">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
                                 </div>
                             </div>
                         </div>`;
@@ -430,6 +470,21 @@
                 if (!saleData) return;
                 const given = saleData.given ?? saleData.total;
                 app.showTicket(saleData, given, saleData.items);
+            },
+
+            deleteTicket(idx) {
+                if (!confirm('¿Estás seguro de eliminar este ticket? Esta acción no se puede deshacer.')) return;
+
+                const sales = DB.get(DB.KEYS.SALES);
+                // Como el historial está invertido, el índice real es: sales.length - 1 - idx
+                const realIdx = sales.length - 1 - idx;
+
+                if (realIdx >= 0 && realIdx < sales.length) {
+                    sales.splice(realIdx, 1);
+                    DB.save(DB.KEYS.SALES, sales);
+                    this.currentView = ''; // Forzar re-render
+                    this.showView('tickets');
+                }
             },
 
             // --- VISTA PERFIL ---
@@ -544,14 +599,18 @@
             renderGrid(prods) {
                 if (prods.length === 0) return '<div class="col-span-full py-20 text-center text-slate-300 font-bold">No se encontraron productos</div>';
                 return prods.map(p => `
-                    <button onclick="app.addToCart(${p.id})" class="bg-white p-5 rounded-[2.5rem] shadow-sm border border-transparent hover:border-emerald-500 transition-all text-left group relative">
-                        <div class="product-art w-full aspect-square rounded-3xl mb-4 text-emerald-600">
-                             <i data-lucide="${p.icon || 'package'}" class="w-10 h-10 group-hover:scale-110 transition-transform"></i>
+                    <button onclick="app.addToCart(${p.id})" class="bg-white dark:bg-slate-800 p-5 rounded-[2.5rem] shadow-sm border border-transparent hover:border-emerald-500 transition-all text-left group relative">
+                        <div class="absolute top-5 right-5 z-10">
+                            <span class="px-2 py-1 rounded-xl bg-slate-50 dark:bg-slate-700/50 text-[10px] font-black uppercase ${p.stock < 5 ? 'text-rose-500' : 'text-slate-400 group-hover:text-emerald-600'} transition-colors">
+                                ${p.stock} pz
+                            </span>
                         </div>
-                        <h4 class="font-extrabold text-slate-800 text-sm leading-tight mb-1 truncate">${p.name}</h4>
+                        <div class="product-art w-full aspect-square rounded-3xl mb-4 text-emerald-600 flex items-center justify-center">
+                            <i data-lucide="${p.icon || 'package'}" class="w-10 h-10 group-hover:scale-110 transition-transform"></i>
+                        </div>
+                        <h4 class="font-extrabold text-slate-800 dark:text-slate-200 text-sm leading-tight mb-1 truncate">${p.name}</h4>
                         <div class="flex justify-between items-center">
                             <span class="text-2xl font-black text-emerald-600 leading-none">$${parseFloat(p.price).toFixed(2)}</span>
-                            <span class="text-[10px] font-black uppercase ${p.stock < 5 ? 'text-rose-500' : 'text-slate-300'}">${p.stock} pz</span>
                         </div>
                         <div class="absolute inset-0 bg-emerald-500/5 opacity-0 group-active:opacity-100 transition-opacity"></div>
                     </button>
@@ -844,8 +903,11 @@
                                     <tr class="hover:bg-slate-50/20 dark:hover:bg-slate-700/30 transition-colors">
                                         <td class="p-8">
                                             <div class="flex items-center gap-4">
-                                                <div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
-                                                    <i data-lucide="${p.icon || 'package'}" class="w-5 h-5"></i>
+                                                <div class="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 overflow-hidden flex-shrink-0">
+                                                    ${p.image
+                        ? `<img src="${p.image}" alt="${p.name}" class="w-full h-full object-cover" loading="lazy">`
+                        : `<i data-lucide="${p.icon || 'package'}" class="w-5 h-5"></i>`
+                    }
                                                 </div>
                                                 <span class="font-bold text-slate-700 dark:text-slate-200">${p.name}</span>
                                             </div>
@@ -933,41 +995,120 @@
 
             // --- VISTA REPORTES ---
             renderReports(container) {
-                const sales = DB.get(DB.KEYS.SALES);
-                const total = sales.reduce((s, x) => s + x.total, 0);
+                const sales = DB.get(DB.KEYS.SALES) || [];
+                const products = DB.get(DB.KEYS.PRODUCTS) || [];
+                const now = new Date();
+                const todayStr = now.toDateString();
+
+                // 1. Filtrar ventas de HOY
+                const todaySales = sales.filter(s => new Date(s.date).toDateString() === todayStr);
+                const todayTotal = todaySales.reduce((s, x) => s + x.total, 0);
+
+                // 2. Calcular Top 3 Productos de HOY
+                const itemCounts = {};
+                todaySales.forEach(s => {
+                    s.items.forEach(item => {
+                        itemCounts[item.name] = (itemCounts[item.name] || 0) + item.quantity;
+                    });
+                });
+                const topProducts = Object.entries(itemCounts)
+                    .sort(([, a], [, b]) => b - a)
+                    .slice(0, 3)
+                    .map(([name, qty]) => {
+                        const p = products.find(x => x.name === name) || { icon: 'package' };
+                        return { name, qty, icon: p.icon };
+                    });
+
+                // 3. Preparar datos para Gráfica (Últimos 7 días)
+                const last7Days = [...Array(7)].map((_, i) => {
+                    const d = new Date();
+                    d.setDate(d.getDate() - i);
+                    return d.toDateString();
+                }).reverse();
+
+                const dailyTotals = last7Days.map(dayStr => {
+                    return sales
+                        .filter(s => new Date(s.date).toDateString() === dayStr)
+                        .reduce((sum, s) => sum + s.total, 0);
+                });
+
+                const dayLabels = last7Days.map(d => {
+                    const date = new Date(d);
+                    return date.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric' });
+                });
+
                 container.innerHTML = `
                     <div class="mb-10">
                         <h2 class="text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">Corte de Caja</h2>
-                        <p class="text-slate-500 dark:text-slate-400 mt-2 font-medium">Resumen financiero del día.</p>
+                        <p class="text-slate-500 dark:text-slate-400 mt-2 font-medium">Análisis de rendimiento y ventas del día.</p>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-                        <div class="bg-emerald-600 p-10 rounded-[3rem] text-white shadow-2xl shadow-emerald-200 flex flex-col justify-center">
-                            <span class="text-xs font-black uppercase opacity-50 tracking-[0.2em]">Venta Total</span>
-                            <div class="text-6xl font-black mt-2 leading-none">$${total.toFixed(2)}</div>
-                            <p class="mt-6 text-sm font-bold opacity-80 flex items-center gap-2">
-                                <i data-lucide="check-circle" class="w-4 h-4"></i> ${sales.length} transacciones procesadas
-                            </p>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+                        <!-- KPI Principal -->
+                        <div class="lg:col-span-2 bg-emerald-600 p-10 rounded-[3rem] text-white shadow-2xl shadow-emerald-200 flex flex-col justify-between relative overflow-hidden">
+                            <div class="relative z-10">
+                                <span class="text-xs font-black uppercase opacity-60 tracking-[0.2em]">Ventas de Hoy</span>
+                                <div class="text-6xl font-black mt-2 leading-none">$${todayTotal.toFixed(2)}</div>
+                                <div class="mt-8 flex gap-6">
+                                    <div>
+                                        <p class="text-[10px] font-black uppercase opacity-60">Tickets</p>
+                                        <p class="text-2xl font-black">${todaySales.length}</p>
+                                    </div>
+                                    <div class="w-px h-10 bg-white/20"></div>
+                                    <div>
+                                        <p class="text-[10px] font-black uppercase opacity-60">Promedio</p>
+                                        <p class="text-2xl font-black">$${todaySales.length ? (todayTotal / todaySales.length).toFixed(1) : '0'}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <i data-lucide="trending-up" class="absolute -bottom-10 -right-10 w-64 h-64 text-white/10 rotate-12"></i>
                         </div>
-                        <div class="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-sm flex flex-col justify-center text-center">
-                             <div class="flex justify-center gap-4 mb-4">
-                                <i data-lucide="zap" class="w-10 h-10 text-emerald-500 fill-emerald-500"></i>
-                                <i data-lucide="award" class="w-10 h-10 text-amber-400 fill-amber-400"></i>
-                             </div>
-                             <p class="text-slate-400 font-bold uppercase text-xs tracking-widest italic">¡Excelente día de ventas!</p>
+
+                        <!-- Top Productos -->
+                        <div class="bg-white dark:bg-slate-800 p-8 rounded-[3rem] border border-slate-100 dark:border-slate-700 shadow-sm">
+                            <h3 class="font-black text-slate-800 dark:text-slate-200 text-xs uppercase tracking-widest mb-6">Más Vendidos Hoy</h3>
+                            <div class="space-y-4">
+                                ${topProducts.length === 0 ? '<p class="text-center py-10 text-slate-300 italic font-bold">Sin ventas hoy</p>' :
+                        topProducts.map((p, i) => `
+                                    <div class="flex items-center gap-4 p-3 rounded-2xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-600">
+                                        <div class="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 flex items-center justify-center text-emerald-600 shadow-sm">
+                                            <i data-lucide="${p.icon}" class="w-5 h-5"></i>
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="font-black text-slate-800 dark:text-slate-100 text-sm truncate">${p.name}</p>
+                                            <p class="text-[10px] font-bold text-slate-400 uppercase">${p.qty} unidades</p>
+                                        </div>
+                                        <div class="text-emerald-500 font-black text-xs">#${i + 1}</div>
+                                    </div>
+                                `).join('')
+                    }
+                            </div>
                         </div>
                     </div>
 
-                    <div class="bg-white rounded-[3rem] border border-slate-100 overflow-hidden shadow-sm">
-                        <div class="p-8 border-b bg-slate-50/50">
-                            <h3 class="font-black text-slate-800 text-xs uppercase tracking-widest">Historial Reciente</h3>
+                    <!-- Gráfica Semanal -->
+                    <div class="bg-white dark:bg-slate-800 p-10 rounded-[3rem] border border-slate-100 dark:border-slate-700 shadow-sm mb-10">
+                        <div class="flex justify-between items-center mb-8">
+                            <h3 class="font-black text-slate-800 dark:text-slate-200 text-xs uppercase tracking-widest">Rendimiento Semanal</h3>
+                            <div class="flex items-center gap-2 text-emerald-600 font-black text-xs">
+                                <i data-lucide="calendar" class="w-4 h-4"></i> Últimos 7 días
+                            </div>
                         </div>
-                        <div class="divide-y divide-slate-50">
+                        <div class="h-64 w-full">
+                            <canvas id="salesChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bg-white dark:bg-slate-800 rounded-[3rem] border border-slate-100 dark:border-slate-700 overflow-hidden shadow-sm">
+                        <div class="p-8 border-b dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/30">
+                            <h3 class="font-black text-slate-800 dark:text-slate-200 text-xs uppercase tracking-widest">Historial Reciente</h3>
+                        </div>
+                        <div class="divide-y divide-slate-50 dark:divide-slate-700/60">
                             ${sales.length === 0 ? '<p class="p-10 text-center text-slate-300 font-bold italic">No hay ventas registradas</p>' :
-                        sales.slice().reverse().map(s => `
-                                    <div class="p-8 flex justify-between items-center hover:bg-slate-50/30 transition-all">
+                        sales.slice(-10).reverse().map(s => `
+                                    <div class="p-8 flex justify-between items-center hover:bg-slate-50/30 dark:hover:bg-slate-700/30 transition-all">
                                         <div>
-                                            <p class="font-black text-slate-800">Venta #${s.id.toString().slice(-4)}</p>
+                                            <p class="font-black text-slate-800 dark:text-slate-100">Venta #${s.id.toString().slice(-4)}</p>
                                             <p class="text-xs font-bold text-slate-400 uppercase tracking-tighter">${new Date(s.date).toLocaleTimeString()}</p>
                                         </div>
                                         <div class="text-right">
@@ -980,6 +1121,44 @@
                         </div>
                     </div>
                 `;
+
+                // Inicializar Gráfica
+                setTimeout(() => {
+                    const ctx = document.getElementById('salesChart');
+                    if (!ctx) return;
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: dayLabels,
+                            datasets: [{
+                                label: 'Ventas ($)',
+                                data: dailyTotals,
+                                backgroundColor: '#10b981',
+                                borderRadius: 12,
+                                borderSkipped: false,
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    backgroundColor: '#0f172a',
+                                    padding: 12,
+                                    titleFont: { size: 12, weight: 'bold' },
+                                    bodyFont: { size: 14, weight: '900' },
+                                    displayColors: false
+                                }
+                            },
+                            scales: {
+                                x: { grid: { display: false }, ticks: { font: { weight: 'bold' }, color: '#94a3b8' } },
+                                y: { grid: { color: '#f1f5f9' }, min: 0, ticks: { font: { weight: 'bold' }, color: '#94a3b8' } }
+                            }
+                        }
+                    });
+                    lucide.createIcons();
+                }, 50);
             },
 
             filterPOS(q) {
