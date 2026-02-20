@@ -66,13 +66,52 @@
             left: -50%;
         }
 
+        /* ===== TICKET / RECIBO TÉRMICO ===== */
+        .ticket-paper {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #fff;
+            color: #111;
+            letter-spacing: 0.01em;
+        }
+
+        .ticket-divider {
+            border: none;
+            border-top: 1px dashed #999;
+            margin: 10px 0;
+        }
+
+        .ticket-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .ticket-row.header-row {
+            font-weight: 700;
+        }
+
+        .ticket-total-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 16px;
+            font-weight: 900;
+            margin: 6px 0;
+        }
+
         @media print {
             .no-print {
                 display: none !important;
             }
 
-            #ticket-area {
+            body>*:not(#print-ticket-wrapper) {
+                display: none !important;
+            }
+
+            #print-ticket-wrapper {
                 display: block !important;
+                width: 280px;
+                margin: 0 auto;
             }
         }
     </style>
@@ -498,28 +537,145 @@
 
                 // 2. Guardar Venta
                 const sales = DB.get(DB.KEYS.SALES);
+                const ticketNum = String(sales.length + 1).padStart(5, '0');
+                const now = new Date();
                 const saleData = {
                     id: Date.now(),
+                    ticketNum,
                     items: [...this.cart],
                     total: total,
-                    date: new Date().toISOString()
+                    given: given,
+                    change: given - total,
+                    date: now.toISOString()
                 };
                 sales.push(saleData);
                 DB.save(DB.KEYS.SALES, sales);
 
-                // 3. WhatsApp Ticket
-                const profile = DB.get(DB.KEYS.PROFILE);
-                const detail = this.cart.map(i => `${i.quantity}x ${i.name}`).join('%0A');
-                const waMsg = `¡Gracias por tu compra en ${profile.business}!%0A---%0A${detail}%0A%0A*TOTAL: $${total.toFixed(2)}*%0A---%0AFolio: #${saleData.id.toString().slice(-4)}%0A¡Te esperamos en el Pino Suárez!`;
-
+                const cartSnapshot = [...this.cart];
                 this.closeModal();
                 this.cart = [];
                 this.showView('pos');
 
-                setTimeout(() => {
-                    const confirmWA = window.confirm("¿Enviar ticket por WhatsApp al cliente?");
-                    if (confirmWA) window.open(`https://wa.me/?text=${waMsg}`, '_blank');
-                }, 300);
+                // 3. Mostrar ticket imprimible
+                setTimeout(() => app.showTicket(saleData, given, cartSnapshot), 200);
+            },
+
+            showTicket(saleData, given, items) {
+                const profile = DB.get(DB.KEYS.PROFILE);
+                const date = new Date(saleData.date);
+                const dateStr = `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}, ${date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+                const change = given - saleData.total;
+
+                const itemsHTML = items.map(i => `
+                    <div class="ticket-row">
+                        <span style="flex:0 0 28px">${i.quantity}</span>
+                        <span style="flex:1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${i.name}</span>
+                        <span style="flex:0 0 70px;text-align:right">$${(i.price * i.quantity).toFixed(2)}</span>
+                    </div>
+                `).join('');
+
+                // WhatsApp message
+                const detail = items.map(i => `${i.quantity}x ${i.name} = $${(i.price * i.quantity).toFixed(2)}`).join('%0A');
+                const waMsg = `¡Gracias por tu compra en ${profile.business}!%0A---%0A${detail}%0A%0ATOTAL: $${saleData.total.toFixed(2)}%0APago: $${given.toFixed(2)}%0ACambio: $${change.toFixed(2)}%0A---%0ATicket: %23${saleData.ticketNum}%0A¡Te esperamos pronto!`;
+
+                const modal = document.getElementById('modal-overlay');
+                modal.classList.remove('hidden');
+                document.getElementById('modal-content').innerHTML = `
+                    <div class="p-6 flex flex-col items-center gap-5">
+
+                        <!-- Ticket -->
+                        <div id="ticket-printable" class="ticket-paper w-full max-w-[280px] p-5 rounded-xl border-2 border-dashed border-slate-200 shadow-inner bg-white">
+
+                            <!-- Encabezado -->
+                            <div style="text-align:center;margin-bottom:8px">
+                                <div style="font-size:17px;font-weight:900;letter-spacing:0.05em">${profile.business.toUpperCase()} POS</div>
+                                <div style="font-size:11px;color:#555">${profile.location}</div>
+                                <div style="font-size:11px;color:#555">Tel: ${profile.phone}</div>
+                            </div>
+
+                            <hr class="ticket-divider">
+
+                            <!-- Fecha y #Ticket -->
+                            <div class="ticket-row" style="font-size:12px">
+                                <span>Fecha:</span><span>${dateStr}</span>
+                            </div>
+                            <div class="ticket-row" style="font-size:12px">
+                                <span>Ticket #:</span><span>${saleData.ticketNum}</span>
+                            </div>
+
+                            <hr class="ticket-divider">
+
+                            <!-- Encabezado columnas -->
+                            <div class="ticket-row header-row" style="font-size:12px;border-bottom:1px solid #ccc;padding-bottom:4px;margin-bottom:4px">
+                                <span style="flex:0 0 28px">Cant</span>
+                                <span style="flex:1">Desc</span>
+                                <span style="flex:0 0 70px;text-align:right">Importe</span>
+                            </div>
+
+                            <!-- Productos -->
+                            ${itemsHTML}
+
+                            <hr class="ticket-divider">
+
+                            <!-- Total -->
+                            <div class="ticket-total-row">
+                                <span>TOTAL:</span>
+                                <span>$${saleData.total.toFixed(2)}</span>
+                            </div>
+                            <div class="ticket-row" style="font-size:13px">
+                                <span>Pago (Efectivo):</span><span>$${given.toFixed(2)}</span>
+                            </div>
+                            <div class="ticket-row" style="font-size:13px">
+                                <span>Cambio:</span><span>$${change.toFixed(2)}</span>
+                            </div>
+
+                            <hr class="ticket-divider">
+
+                            <!-- Pie -->
+                            <div style="text-align:center;font-size:11px;margin-top:6px">
+                                <strong>¡GRACIAS POR SU COMPRA!</strong><br>
+                                <span style="color:#666">Si requiere factura solicítela<br>en el momento.</span>
+                            </div>
+                        </div>
+
+                        <!-- Botones de acción -->
+                        <div class="no-print flex gap-3 w-full max-w-[280px]">
+                            <button onclick="app.printTicket()" class="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white py-3.5 rounded-2xl font-black text-sm hover:bg-slate-700 active:scale-95 transition-all shadow-lg">
+                                <i data-lucide="printer" class="w-4 h-4"></i> Imprimir
+                            </button>
+                            <button onclick="window.open('https://wa.me/?text=${waMsg}','_blank')" class="flex-1 flex items-center justify-center gap-2 bg-emerald-600 text-white py-3.5 rounded-2xl font-black text-sm hover:bg-emerald-700 active:scale-95 transition-all shadow-lg shadow-emerald-200">
+                                <i data-lucide="send" class="w-4 h-4"></i> WhatsApp
+                            </button>
+                        </div>
+                        <button onclick="app.closeModal()" class="no-print text-xs font-bold text-slate-400 hover:text-slate-700 transition-colors">
+                            Cerrar ticket
+                        </button>
+                    </div>
+                `;
+                lucide.createIcons();
+            },
+
+            printTicket() {
+                const ticketEl = document.getElementById('ticket-printable');
+                if (!ticketEl) return;
+                const w = window.open('', '_blank', 'width=350,height=600');
+                w.document.write(`
+                    <!DOCTYPE html><html><head>
+                    <meta charset="UTF-8">
+                    <title>Ticket</title>
+                    <style>
+                        body{margin:0;padding:16px;font-family:'Courier New',Courier,monospace;color:#111;background:#fff;width:280px;}
+                        *{box-sizing:border-box;}
+                        .ticket-row{display:flex;justify-content:space-between;font-size:13px;line-height:1.6;}
+                        .ticket-total-row{display:flex;justify-content:space-between;font-size:16px;font-weight:900;margin:6px 0;}
+                        hr{border:none;border-top:1px dashed #999;margin:10px 0;}
+                    </style>
+                    </head><body>
+                    ${ticketEl.innerHTML}
+                    <script>window.onload=()=>{window.print();window.close();}<\/script>
+                    </body></html>
+                `);
+                w.document.close();
             },
 
             // --- VISTA INVENTARIO ---
